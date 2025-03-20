@@ -1,27 +1,37 @@
 import pandas as pd
 
-def clean_column(df, column_name):
-    df[column_name] = pd.to_numeric(df[column_name], errors='coerce') 
-    return df
+def process_chunk(chunk):
+    chunk = chunk[['titleId', 'title']]
+    chunk = chunk.dropna(subset=['titleId', 'title']) 
 
-def clean_dataset(input_file, output_file):    
-    data = pd.read_csv(input_file, sep="\t", low_memory=False, na_values=["\\N"])
-    data = data[['title', 'region', 'language', 'types', 'isOriginalTitle', 'titleId']]
+    chunk_grouped = chunk.groupby('titleId')['title'].apply(lambda x: ', '.join(x)).reset_index()
 
-    print(data.head())    
-    print(data.dtypes)
-    print(data.isnull().sum())
-    print(data.columns)
-    print(data.shape)
+    return chunk_grouped
 
-    # for col in data.select_dtypes(include=['object']).columns:
-    #     print(f"\nColumn: {col}")
-    #     print(data[col].unique())
-    
-    data.to_parquet(output_file, engine="pyarrow", compression="snappy")
+def clean_dataset(input_file, output_file, chunk_size=100000):
+    aggregated_data = {}
+
+    for chunk in pd.read_csv(input_file, sep="\t", low_memory=False, na_values=["\\N"], chunksize=chunk_size):
+        chunk_grouped = process_chunk(chunk)
+
+        for index, row in chunk_grouped.iterrows():
+            title_id = row['titleId']
+            title_list = row['title']
+
+            if title_id in aggregated_data:
+                aggregated_data[title_id] += ', ' + title_list
+            else:
+                aggregated_data[title_id] = title_list
+
+    final_df = pd.DataFrame(list(aggregated_data.items()), columns=['titleId', 'titles'])
+
+    print(len(final_df))
+    print(final_df.head())
+
+    final_df.to_parquet(output_file, engine="pyarrow", compression="snappy")
 
 if __name__ == "__main__":
     input_file = 'title.akas.tsv'
     output_file = 'parquet/title.akas.parquet'
-    
+
     clean_dataset(input_file, output_file)
