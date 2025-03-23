@@ -1,5 +1,6 @@
 import pandas as pd
 import json
+import concurrent.futures
 
 def process_akas(df):
     df = df[['titleId', 'title']].dropna(subset=['titleId', 'title'])
@@ -24,7 +25,7 @@ def process_crew(df):
 
 # this could really be a graph database if we had more time
 def process_principals(df):
-        valid_categories = {'director', 'producer', 'cinematographer', 'composer', 'writer', 'actor', 'actress'}
+        valid_categories = {'producer','composer', 'actor', 'actress'}
         valid_jobs = {'producer', 'director of photography', 'screenplay', 'story', 'writer', 'poem', 'composer', 'play', 'novel'}
         df = df[df['category'].isin(valid_categories)]
         df = df[df['job'].isin(valid_jobs) | df['job'].isnull()]
@@ -42,15 +43,17 @@ def process_principals(df):
             return None
 
         df['characters'] = df['characters'].apply(extract_character)
+
+        df = df.groupby('tconst').apply(lambda x: x[['nconst', 'category', 'characters']].to_dict(orient='records'), include_groups=False).reset_index(name='principals')
     
-        df = df.groupby('tconst').apply(lambda x: {
-            "tconst": x.name,
-            "prinncipals": x.apply(lambda row: {
-                "characterName": row['characters'],
-                "nconst": row['nconst'],
-                "category": row['category']
-            }, axis=1).tolist()
-        }).reset_index(drop=True)
+        # df = df.groupby('tconst').apply(lambda x: {
+        #     "tconst": x.name,
+        #     "principals": x.apply(lambda row: {
+        #         "characterName": row['characters'],
+        #         "nconst": row['nconst'],
+        #         "category": row['category']
+        #     }, axis=1).tolist()
+        # }, include_groups= False).reset_index(drop=True)
 
         return df
 
@@ -63,32 +66,41 @@ def clean_dataset(dataset_name, process_function, chunk_size=None):
     input_file = f"{dataset_name}.tsv"
     output_file = f"parquet/{dataset_name}.parquet"
 
-    # read with chunking if needed (for large datasets like 'akas' my mac doesn't have enough memory)
+    def process_chunk(chunk):
+        return process_function(chunk)
+
     if chunk_size:
-        aggregated_data = pd.DataFrame()
-        # currently this functionality is for the akas dataset, need to adjust for others
-        for chunk in pd.read_csv(input_file, sep="\t", low_memory=False, na_values=["\\N"], chunksize=chunk_size):
-            processed_chunk = process_function(chunk)
-            aggregated_data = pd.concat([aggregated_data, processed_chunk])
-            print(f"Processed chunk: {len(processed_chunk)} rows")
+        # process chunks in parallel
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = []
+            for chunk in pd.read_csv(input_file, sep="\t", low_memory=False, na_values=["\\N"], chunksize=chunk_size):
+                print(f"Processing chunk")
+                futures.append(executor.submit(process_chunk, chunk))
+
+            # collect the processed chunks
+            processed_chunks = []
+            for future in concurrent.futures.as_completed(futures):
+                processed_chunks.append(future.result())
+                print(f"Processed chunk")
+
+            aggregated_data = pd.concat(processed_chunks, ignore_index=True)
 
         if dataset_name == "title.akas":
-            # creates comma separeted list of titles for each titleId
             aggregated_data = aggregated_data.groupby('titleId')['titles'].apply(lambda x: ', '.join(x)).reset_index()
-        else:
-            aggregated_data = aggregated_data.drop_duplicates()
 
     else:
-        # read the entire dataset
         df = pd.read_csv(input_file, sep="\t", low_memory=False, na_values=["\\N"])
         aggregated_data = process_function(df)
+
+    if isinstance(aggregated_data, pd.Series):
+        aggregated_data = aggregated_data.to_frame()
 
     aggregated_data.to_parquet(output_file, engine="pyarrow", compression="snappy")
     print(f"Processed '{dataset_name}': {len(aggregated_data)} rows")
 
 if __name__ == "__main__":
-    clean_dataset("title.akas", process_akas, chunk_size=100000)
-    clean_dataset("title.basics", process_basics)
-    clean_dataset("title.crew", process_crew)
-    clean_dataset("title.principals", process_principals, chunk_size=100000)
-    clean_dataset("title.ratings", process_ratings)
+    clean_dataset("title.principals", process_principals, chunk_size=500000)
+    # clean_dataset("title.basics", process_basics)
+    # clean_dataset("title.crew", process_crew)
+    # clean_dataset("title.akas", process_akas, chunk_size=100000)
+    # clean_dataset("title.ratings", process_ratings)

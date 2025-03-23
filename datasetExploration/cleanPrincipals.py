@@ -26,14 +26,14 @@ def clean_dataset(input_file, output_file, chunk_size=100000):
     
         chunk = chunk.groupby('tconst').apply(lambda x: {
             "tconst": x.name,
-            "prinncipals": x.apply(lambda row: {
+            "principals": x.apply(lambda row: {
                 "characterName": row['characters'],
                 "nconst": row['nconst'],
                 "category": row['category']
             }, axis=1).tolist()
         }).reset_index(drop=True)
 
-        print(chunk.iloc[0]['prinncipals'])
+        print(chunk.iloc[0]['principals'])
         print(chunk.head())    
         print(chunk.dtypes)
 

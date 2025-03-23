@@ -9,6 +9,8 @@ def merge_imdb_data(basics_file, akas_file, crew_file, principals_file, ratings_
     crew_df = load_parquet(crew_file)
     principals_df = load_parquet(principals_file)
     ratings_df = load_parquet(ratings_file)
+    print(principals_df.columns)
+
     
     merged_df = basics_df.merge(ratings_df, on='tconst', how='left')
     merged_df = merged_df.merge(akas_df, left_on='tconst', right_on='titleId', how='left').drop(columns=['titleId'])
