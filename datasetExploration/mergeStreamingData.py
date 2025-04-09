@@ -11,7 +11,7 @@ def merge_streaming_data(movies_parquet, streaming_csv, output_parquet):
     streaming_df = pd.read_csv(streaming_csv)
 
     # Normalize titles for matching
-    movies_df['normalizedTitle'] = movies_df['Title'].apply(normalize_title)
+    movies_df['normalizedTitle'] = movies_df['primaryTitle'].apply(normalize_title)
     streaming_df['normalizedTitle'] = streaming_df['Title'].apply(normalize_title)
 
     # Prepare streaming services column
@@ -30,7 +30,7 @@ def merge_streaming_data(movies_parquet, streaming_csv, output_parquet):
     streaming_df['StreamingServices'] = streaming_df.apply(get_streaming_services, axis=1)
 
     # Merge datasets on normalized titles
-    merged_df = movies_df.merge(streaming_df[['normalizedTitle', 'StreamingServices']], on='normalizedTitle', how='inner')
+    merged_df = movies_df.merge(streaming_df[['normalizedTitle', 'StreamingServices']], on='normalizedTitle', how='left')
 
     # Calculate merge statistics
     total_movies = len(movies_df)

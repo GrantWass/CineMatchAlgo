@@ -15,7 +15,7 @@ def merge_imdb_tropes(imdb_parquet, tropes_csv, output_parquet):
     tropes_df['normalizedTitle'] = tropes_df['Title'].apply(normalize_title)
     
     # Merge datasets on normalized titles
-    merged_df = imdb_df.merge(tropes_df, on='normalizedTitle', how='inner')
+    merged_df = imdb_df.merge(tropes_df, on='normalizedTitle', how='left')
     
     # Calculate merge statistics
     total_imdb = len(imdb_df)
