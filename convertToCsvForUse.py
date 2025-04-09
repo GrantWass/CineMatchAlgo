@@ -20,6 +20,10 @@ if __name__ == "__main__":
     columns_to_drop = ["all_crew", "principals", "Title", "principals_x", "writers", "directors", "endYear", "titleType"]
     cleaned_df = final_df.drop(columns=columns_to_drop)
 
+    first_row = cleaned_df.iloc[0] 
+    for col, val in first_row.items():
+        print(f"{col}: {val}")
+
     # Save to CSV
     cleaned_df.to_csv("MvpDataset.csv", index=False)
     print("Saved cleaned dataset as 'MvpDataset.csv'")
