@@ -46,15 +46,6 @@ def process_principals(df):
 
         df = df.groupby('tconst').apply(lambda x: x[['nconst', 'category', 'characters']].to_dict(orient='records'), include_groups=False).reset_index(name='principals')
     
-        # df = df.groupby('tconst').apply(lambda x: {
-        #     "tconst": x.name,
-        #     "principals": x.apply(lambda row: {
-        #         "characterName": row['characters'],
-        #         "nconst": row['nconst'],
-        #         "category": row['category']
-        #     }, axis=1).tolist()
-        # }, include_groups= False).reset_index(drop=True)
-
         return df
 
 # these didn't need to be cleaned, just here as a placeholder
@@ -100,7 +91,7 @@ def clean_dataset(dataset_name, process_function, chunk_size=None):
 
 if __name__ == "__main__":
     clean_dataset("title.principals", process_principals, chunk_size=500000)
-    # clean_dataset("title.basics", process_basics)
-    # clean_dataset("title.crew", process_crew)
-    # clean_dataset("title.akas", process_akas, chunk_size=100000)
-    # clean_dataset("title.ratings", process_ratings)
+    clean_dataset("title.basics", process_basics)
+    clean_dataset("title.crew", process_crew)
+    clean_dataset("title.akas", process_akas, chunk_size=100000)
+    clean_dataset("title.ratings", process_ratings)
